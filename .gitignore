@@ -2,3 +2,4 @@ output/
 *.pth
 *.weights
 *.t7
+.idea/
