@@ -1,0 +1,4 @@
+output/
+*.pth
+*.weights
+*.t7
