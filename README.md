@@ -1,5 +1,5 @@
 # Trajectory
-clone this repo using the following command
+clone this repo using the following command \
 git clone  https://github.com/nithinvenny07/Trajectory 
 
 download objection detection weights from the following link and save it in detector/YOLOV3/weight 
