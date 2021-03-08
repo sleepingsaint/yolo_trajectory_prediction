@@ -21,7 +21,7 @@ else:
 
 
 class VideoTracker(object):
-    def __init__(self, cfg, args, video_path):
+    def __init__(self, cfg , args , video_path):
         self.cfg = cfg
         self.args = args
         self.video_path = video_path
