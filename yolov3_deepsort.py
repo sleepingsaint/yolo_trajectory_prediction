@@ -227,8 +227,8 @@ class VideoTracker(object):
 
 
             # logging
-            self.logger.info("time: {:.03f}s, fps: {:.03f}, detection numbers: {}, tracking numbers: {}" \
-                             .format(end - start, 1 / (end - start), bbox_xywh.shape[0], len(outputs)))
+            # self.logger.info("time: {:.03f}s, fps: {:.03f}, detection numbers: {}, tracking numbers: {}" \
+            #                  .format(end - start, 1 / (end - start), bbox_xywh.shape[0], len(outputs)))
 
 
 
