@@ -3,3 +3,4 @@ output/
 *.weights
 *.t7
 .idea/
+*__pycache__/
