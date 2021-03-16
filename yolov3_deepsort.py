@@ -93,6 +93,8 @@ class VideoTracker(object):
 
     def run(self):
         results = []
+        pr = []
+        obs = []
         idx_frame = 0
         mean_end_effector = torch.tensor((-2.6612e-05, -7.8652e-05))
         std_end_effector = torch.tensor((0.0025, 0.0042))
@@ -104,101 +106,115 @@ class VideoTracker(object):
         std_ped = torch.tensor([0.0001, 0.0001])
         while self.vdo.grab() :
             idx_frame += 1
-            if idx_frame % self.args.frame_interval:
-                continue
             start = time.time()
             _, ori_im = self.vdo.retrieve()
             im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
             height, width = ori_im.shape[:2]
             bbox_xywh , cls_conf, cls_ids = self.detector(im)
-            print("cls_ids")
-            print(cls_conf)
-            print(cls_ids)
-            for i in range(3):
-                mask = cls_ids == i
-                t_cls_conf = cls_conf[mask]
-                t_bbox_xywh = bbox_xywh[mask]
-                if t_cls_conf.size > 0:
-                    pt = [t_bbox_xywh[np.argmax(t_cls_conf)][0] / width, t_bbox_xywh[np.argmax(t_cls_conf)][1] / height]
-                    t_id = i
+            boxes_to_print = bbox_xywh.copy()
+            if idx_frame % self.args.frame_interval == 0:
+                pr = []
+                obs = []
+                for i in range(3):
+                    mask = cls_ids == i
+                    t_cls_conf = cls_conf[mask]
+                    t_bbox_xywh = bbox_xywh[mask]
+                    if t_cls_conf.size > 0:
+                        pt = [t_bbox_xywh[np.argmax(t_cls_conf)][0] / width, t_bbox_xywh[np.argmax(t_cls_conf)][1] / height]
+                        t_id = i
+                        if t_id in self.Q:
+                            self.Q[t_id][0].append(pt)
+                        else:
+                            self.Q[t_id] = [[pt]]
+                # select person class
+                mask = cls_ids == 3
+                bbox_xywh = bbox_xywh[mask]
+                # bbox dilation just in case bbox too small, delete this line if using a better pedestrian detector
+                #bbox_xywh[:, 3:] *= 1.2
+                cls_conf = cls_conf[mask]
+
+                # do tracking
+                outputs = []
+                outputs = self.deepsort.update(bbox_xywh, cls_conf, im)
+                # print(outputs)
+                for i in range(len(outputs)):
+                    t_id = outputs[i][4]+5 # added with 5 so that ped id will not clash with id's of end_effector arm and probe
+                    pt = [(int(outputs[i][0]) + int(outputs[i][2])) / (2*width), (int(outputs[i][1]) + int(outputs[i][3])) / (2*height)]
+                    #print(pt)
                     if t_id in self.Q:
                         self.Q[t_id][0].append(pt)
                     else:
                         self.Q[t_id] = [[pt]]
-            # select person class
-            mask = cls_ids == 3
-            bbox_xywh = bbox_xywh[mask]
-            # bbox dilation just in case bbox too small, delete this line if using a better pedestrian detector
-            #bbox_xywh[:, 3:] *= 1.2
-            cls_conf = cls_conf[mask]
+                # print(self.Q)
 
-            # do tracking
-            outputs = self.deepsort.update(bbox_xywh, cls_conf, im)
-            for i in range(len(outputs)):
-                t_id = outputs[i][4]+5 # added with 5 so that ped id will not clash with id's of end_effector arm and probe
-                pt = [(int(outputs[i][0]) + int(outputs[i][2])) / (2*width), (int(outputs[i][1]) + int(outputs[i][3])) / (2*height)]
-                #print(pt)
-                if t_id in self.Q:
-                    self.Q[t_id][0].append(pt)
-                else:
-                    self.Q[t_id] = [[pt]]
-            # print(self.Q)
-            for i in self.Q:
-                if (len(self.Q[i][0])) == 8:
-                    Q_np = np.array(self.Q[i], dtype=np.float32)
-                    Q_d = Q_np[:, 1:, 0:2] - Q_np[:, :-1, 0:2]
-                    pr = []
-                    inp = torch.from_numpy(Q_d)
-                    #print(i)
-                    #print(inp)
-                    if i == 0:
-                        inp = (inp.to(device) - mean_end_effector.to(device)) / std_end_effector.to(device)
-                    elif i == 1:
-                        inp = (inp.to(device) - mean_arm.to(device)) / std_arm.to(device)
-                    elif i == 2:
-                        inp = (inp.to(device) - mean_probe.to(device)) / std_probe.to(device)
-                    else:
-                        inp = (inp.to(device) - mean_ped.to(device)) / std_ped.to(device)
-                    src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
-                    start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
-                        device)
-                    dec_inp = start_of_seq
-                    print("predicting trajectory")
-                    for itr in range(12):
-                        trg_att = subsequent_mask(dec_inp.shape[1]).repeat(dec_inp.shape[0], 1, 1).to(device)
+                for i in self.Q:
+                    if (len(self.Q[i][0])) == 8:
+                        Q_np = np.array(self.Q[i], dtype=np.float32)
+                        obs.append(Q_np)
+                        Q_d = Q_np[:, 1:, 0:2] - Q_np[:, :-1, 0:2]
+                        inp = torch.from_numpy(Q_d)
+                        #print(i)
+                        #print(inp)
                         if i == 0:
-                            out = self.traj_endeffector(inp, dec_inp, src_att, trg_att)
+                            inp = (inp.to(device) - mean_end_effector.to(device)) / std_end_effector.to(device)
                         elif i == 1:
-                            out = self.traj_arm(inp, dec_inp, src_att, trg_att)
+                            inp = (inp.to(device) - mean_arm.to(device)) / std_arm.to(device)
                         elif i == 2:
-                            out = self.traj_probe(inp, dec_inp, src_att, trg_att)
+                            inp = (inp.to(device) - mean_probe.to(device)) / std_probe.to(device)
                         else:
-                            out = self.traj_ped(inp, dec_inp, src_att, trg_att)
-                        dec_inp = torch.cat((dec_inp, out[:, -1:, :]), 1)
-                    if i == 0:
-                        preds_tr_b = (dec_inp[:, 1:, 0:2] * std_end_effector.to(device) + mean_end_effector.to(device)).detach().cpu().numpy().cumsum(1)+Q_np[:, -1:, 0:2]
-                    elif i == 1:
-                        preds_tr_b = (dec_inp[:, 1:, 0:2] * std_arm.to(device) + mean_arm.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
-                    elif i == 2:
-                        preds_tr_b = (dec_inp[:, 1:, 0:2] * std_probe.to(device) + mean_probe.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
-                    else:
-                        preds_tr_b = (dec_inp[:, 1:, 0:2] * std_ped.to(device) + mean_ped.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
-                    pr.append(preds_tr_b)
-                    pr = np.concatenate(pr, 0)
-                    self.Q[i][0].pop(0)
-                    co = (0, 255, 0)  # green
-                    cp = (0, 0, 255)  # red
-                    #print(pr)
-                    for j in range(11):
-                        pp1 = (int(pr[0, j, 0]*width), int(pr[0, j, 1]*height))
-                        pp2 = (int(pr[0, j+1, 0] * width), int(pr[0, j+1, 1] * height))
-                        #ori_im = cv2.circle(ori_im, pp, 3, cp, -1)
-                        ori_im = cv2.line(ori_im,pp1,pp2,cp,2)
-                    for j in range(7):
-                        op1 = (int(Q_np[0, j, 0]*width), int(Q_np[0, j, 1]*height))
-                        op2 = (int(Q_np[0, j+1, 0] * width), int(Q_np[0, j+1, 1] * height))
-                        #ori_im = cv2.circle(ori_im, op, 3, co, -1)
-                        ori_im = cv2.line(ori_im, op1, op2, co, 2)
+                            inp = (inp.to(device) - mean_ped.to(device)) / std_ped.to(device)
+                        src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
+                        start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
+                            device)
+                        dec_inp = start_of_seq
+                        print("predicting trajectory")
+                        for itr in range(12):
+                            trg_att = subsequent_mask(dec_inp.shape[1]).repeat(dec_inp.shape[0], 1, 1).to(device)
+                            if i == 0:
+                                out = self.traj_endeffector(inp, dec_inp, src_att, trg_att)
+                            elif i == 1:
+                                out = self.traj_arm(inp, dec_inp, src_att, trg_att)
+                            elif i == 2:
+                                out = self.traj_probe(inp, dec_inp, src_att, trg_att)
+                            else:
+                                out = self.traj_ped(inp, dec_inp, src_att, trg_att)
+                            dec_inp = torch.cat((dec_inp, out[:, -1:, :]), 1)
+                        if i == 0:
+                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_end_effector.to(device) + mean_end_effector.to(device)).detach().cpu().numpy().cumsum(1)+Q_np[:, -1:, 0:2]
+                        elif i == 1:
+                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_arm.to(device) + mean_arm.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
+                        elif i == 2:
+                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_probe.to(device) + mean_probe.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
+                        else:
+                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_ped.to(device) + mean_ped.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
+                        pr.append(preds_tr_b)
+                        #pr = np.concatenate(pr, 0)
+                        self.Q[i][0].pop(0)
+            if len(boxes_to_print) > 0:
+                boxes_xyxy = boxes_to_print.copy()
+                boxes_xyxy[:, 0] = boxes_to_print[:, 0] - boxes_to_print[:, 2] / 2.
+                boxes_xyxy[:, 2] = boxes_to_print[:, 0] + boxes_to_print[:, 2] / 2.
+                boxes_xyxy[:, 1] = boxes_to_print[:, 1] - boxes_to_print[:, 3] / 2.
+                boxes_xyxy[:, 3] = boxes_to_print[:, 1] + boxes_to_print[:, 3] / 2.
+                # TODO need to draw boxes
+                ori_im = draw_boxes(ori_im, boxes_xyxy, cls_ids)
+            co = (0, 255, 0)  # green
+            cp = (0, 0, 255)  # red
+            #print(preds_tr_b)
+            for i in range(len(pr)):
+                for j in range(11):
+                    pp1 = (int(pr[i][0, j, 0]*width), int(pr[i][0, j, 1]*height))
+                    pp2 = (int(pr[i][0, j+1, 0] * width), int(pr[i][0, j+1, 1] * height))
+                    #ori_im = cv2.circle(ori_im, pp, 3, cp, -1)
+                    ori_im = cv2.line(ori_im, pp1, pp2, cp, 2)
+            for i in range(len(obs)):
+                for j in range(7):
+                    op1 = (int(obs[i][0, j, 0]*width), int(obs[i][0, j, 1]*height))
+                    op2 = (int(obs[i][0, j+1, 0] * width), int(obs[i][0, j+1, 1] * height))
+                    #ori_im = cv2.circle(ori_im, op, 3, co, -1)
+                    ori_im = cv2.line(ori_im, op1, op2, co, 2)
+            # print("---")
+            # print(len(pr))
             cv2.imshow("test", ori_im)
             cv2.waitKey(1)
             # draw boxes for visualization
