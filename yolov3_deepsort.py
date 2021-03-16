@@ -104,6 +104,17 @@ class VideoTracker(object):
         std_probe = torch.tensor([0.0038, 0.0185])
         mean_ped = torch.tensor([0.0001, 0.0001])
         std_ped = torch.tensor([0.0001, 0.0001])
+        #window = [0.735156, 0.520270, 0.071875, 0.127027]
+        window = [0.755156, 0.560270, 0.075875, 0.157027]
+        window[0] = window[0] * 1920
+        window[1] = window[1] * 1080
+        window[2] = window[2] * 1920
+        window[3] = window[3] * 1080
+        window[0] = window[0] - window[2] / 2.
+        window[2] = window[0] + window[2] / 2.
+        window[1] = window[1] - window[3] / 2.
+        window[3] = window[1] + window[3] / 2.
+        names = ["End-effector", "arm", "probe", "Person", "Window"]
         while self.vdo.grab() :
             idx_frame += 1
             start = time.time()
@@ -111,6 +122,9 @@ class VideoTracker(object):
             im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
             height, width = ori_im.shape[:2]
             bbox_xywh , cls_conf, cls_ids = self.detector(im)
+            print("class confidence")
+            print(cls_conf)
+            print(cls_ids)
             boxes_to_print = bbox_xywh.copy()
             if idx_frame % self.args.frame_interval == 0:
                 pr = []
@@ -136,7 +150,7 @@ class VideoTracker(object):
                 # do tracking
                 outputs = []
                 outputs = self.deepsort.update(bbox_xywh, cls_conf, im)
-                # print(outputs)
+                print(outputs)
                 for i in range(len(outputs)):
                     t_id = outputs[i][4]+5 # added with 5 so that ped id will not clash with id's of end_effector arm and probe
                     pt = [(int(outputs[i][0]) + int(outputs[i][2])) / (2*width), (int(outputs[i][1]) + int(outputs[i][3])) / (2*height)]
@@ -192,12 +206,21 @@ class VideoTracker(object):
                         self.Q[i][0].pop(0)
             if len(boxes_to_print) > 0:
                 boxes_xyxy = boxes_to_print.copy()
+                ori_im = cv2.rectangle(ori_im, (int(window[0]),int(window[1])), (int(window[2]),int(window[3])), (0, 204, 204), 2)
+                cv2.putText(ori_im, names[4], (int(window[0]), int(window[1]) - 10), 0,
+                            1e-3 * height, (255, 0, 0), int((height + width) // 900))
                 boxes_xyxy[:, 0] = boxes_to_print[:, 0] - boxes_to_print[:, 2] / 2.
                 boxes_xyxy[:, 2] = boxes_to_print[:, 0] + boxes_to_print[:, 2] / 2.
                 boxes_xyxy[:, 1] = boxes_to_print[:, 1] - boxes_to_print[:, 3] / 2.
                 boxes_xyxy[:, 3] = boxes_to_print[:, 1] + boxes_to_print[:, 3] / 2.
                 # TODO need to draw boxes
-                ori_im = draw_boxes(ori_im, boxes_xyxy, cls_ids)
+                # ori_im = cv2.rectangle(ori_im, (int(boxes_xyxy[2,0]), int(boxes_xyxy[2,1])), (int(boxes_xyxy[2,2]), int(boxes_xyxy[2,3])),
+                #                        (0, 0, 255), 2)
+                #ori_im = draw_boxes(ori_im, boxes_xyxy, cls_ids)
+                for i in range(len(boxes_xyxy)):
+                    ori_im = cv2.rectangle(ori_im, (int(boxes_xyxy[i,0]), int(boxes_xyxy[i,1])), (int(boxes_xyxy[i,2]), int(boxes_xyxy[i,3])),
+                                        (0, 204, 204), 2)
+                    cv2.putText(ori_im, names[cls_ids[i]], (int(boxes_xyxy[i,0]), int(boxes_xyxy[i,1]) - 10), 0, 1e-3 * height, (255, 0, 0), int((height + width) // 900))
             co = (0, 255, 0)  # green
             cp = (0, 0, 255)  # red
             #print(preds_tr_b)
@@ -215,6 +238,24 @@ class VideoTracker(object):
                     ori_im = cv2.line(ori_im, op1, op2, co, 2)
             # print("---")
             # print(len(pr))
+            for i in range(11, 0, -1):
+                if len(pr) >= 3:
+                    pp = (int(pr[2][0, i, 0] * width), int(pr[2][0, i, 1] * height))
+                    if pp[0] > window[0] and pp[1] > window[1] and pp[0] <window[2] and pp[1] < window[3]:
+                        print("collision detected")
+                        ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660),(0, 0, 255), 4)
+                        ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
+                        break
+
+            for i in range(11, 0, -1):
+                if len(pr) >= 3:
+                    pp = (int(pr[0][0, i, 0] * width), int(pr[0][0, i, 1] * height))
+                    if pp[0] > window[0] and pp[1] > window[1] and pp[0] <window[2] and pp[1] < window[3]:
+                        print("collision detected")
+                        ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660), (0, 0, 255), 4)
+                        ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
+                        break
+
             cv2.imshow("test", ori_im)
             cv2.waitKey(1)
             # draw boxes for visualization
