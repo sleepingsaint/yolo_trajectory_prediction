@@ -19,7 +19,7 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 
-
+fps = 0
 class VideoTracker(object):
     def __init__(self, cfg , args , video_path):
         self.cfg = cfg
@@ -40,6 +40,8 @@ class VideoTracker(object):
             self.vdo = cv2.VideoCapture(args.cam)
         else:
             self.vdo = cv2.VideoCapture()
+
+        #print(fps)
         self.detector = build_detector(cfg, use_cuda=use_cuda)
         self.deepsort = build_tracker(cfg, use_cuda=use_cuda)
         self.traj_ped = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0,0], std=[0,0]).to(device)
@@ -51,7 +53,10 @@ class VideoTracker(object):
         self.traj_arm = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0], std=[0, 0]).to(device)
         self.traj_arm.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_arm.pth', map_location=torch.device('cpu')))
         self.traj_arm.eval()
-        self.traj_probe = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0], std=[0, 0]).to(device)
+        self.traj_probe_holder = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0], std=[0, 0]).to(device)
+        self.traj_probe_holder.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_probe_holder.pth', map_location=torch.device('cpu')))
+        self.traj_probe_holder.eval()
+        self.traj_probe = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1,mean=[0, 0], std=[0, 0]).to(device)
         self.traj_probe.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_probe.pth', map_location=torch.device('cpu')))
         self.traj_probe.eval()
         self.class_names = self.detector.class_names
@@ -79,8 +84,9 @@ class VideoTracker(object):
             self.save_results_path = os.path.join(self.args.save_path, "results.txt")
 
             # create video writer
+            #print(self.vdo.get(cv2.CAP_PROP_FPS))
             fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-            self.writer = cv2.VideoWriter(self.save_video_path, fourcc, 20, (self.im_width, self.im_height))
+            self.writer = cv2.VideoWriter(self.save_video_path, fourcc, self.vdo.get(cv2.CAP_PROP_FPS), (self.im_width, self.im_height))
 
             # logging
             self.logger.info("Save results to {}".format(self.args.save_path))
@@ -100,10 +106,12 @@ class VideoTracker(object):
         std_end_effector = torch.tensor((0.0025, 0.0042))
         mean_arm = torch.tensor([-1.3265e-05, -6.5026e-06])
         std_arm = torch.tensor([0.0030, 0.0185])
-        mean_probe = torch.tensor([-5.1165e-05, -7.1806e-05])
-        std_probe = torch.tensor([0.0038, 0.0185])
+        mean_probe_holder = torch.tensor([-5.1165e-05, -7.1806e-05])
+        std_probe_holder = torch.tensor([0.0038, 0.0185])
         mean_ped = torch.tensor([0.0001, 0.0001])
         std_ped = torch.tensor([0.0001, 0.0001])
+        mean_probe = torch.tensor([0.0005, -0.0015])
+        std_probe = torch.tensor([0.0061, 0.0125])
         #window = [0.735156, 0.520270, 0.071875, 0.127027]
         window = [0.755156, 0.560270, 0.075875, 0.157027]
         window[0] = window[0] * 1920
@@ -114,8 +122,9 @@ class VideoTracker(object):
         window[2] = window[0] + window[2] / 2.
         window[1] = window[1] - window[3] / 2.
         window[3] = window[1] + window[3] / 2.
-        names = ["End-effector", "arm", "probe", "Person", "Window"]
+        names = ["End-effector", "arm", "probe_holder", "Person", "probe","window"]
         while self.vdo.grab() :
+
             idx_frame += 1
             start = time.time()
             _, ori_im = self.vdo.retrieve()
@@ -129,7 +138,9 @@ class VideoTracker(object):
             if idx_frame % self.args.frame_interval == 0:
                 pr = []
                 obs = []
-                for i in range(3):
+                for i in range(5):
+                    if i == 3:
+                        continue # 3 is for person class so neglecting here
                     mask = cls_ids == i
                     t_cls_conf = cls_conf[mask]
                     t_bbox_xywh = bbox_xywh[mask]
@@ -174,6 +185,8 @@ class VideoTracker(object):
                         elif i == 1:
                             inp = (inp.to(device) - mean_arm.to(device)) / std_arm.to(device)
                         elif i == 2:
+                            inp = (inp.to(device) - mean_probe_holder.to(device)) / std_probe_holder.to(device)
+                        elif i == 4 :
                             inp = (inp.to(device) - mean_probe.to(device)) / std_probe.to(device)
                         else:
                             inp = (inp.to(device) - mean_ped.to(device)) / std_ped.to(device)
@@ -189,6 +202,8 @@ class VideoTracker(object):
                             elif i == 1:
                                 out = self.traj_arm(inp, dec_inp, src_att, trg_att)
                             elif i == 2:
+                                out = self.traj_probe_holder(inp, dec_inp, src_att, trg_att)
+                            elif i == 4:
                                 out = self.traj_probe(inp, dec_inp, src_att, trg_att)
                             else:
                                 out = self.traj_ped(inp, dec_inp, src_att, trg_att)
@@ -198,6 +213,8 @@ class VideoTracker(object):
                         elif i == 1:
                             preds_tr_b = (dec_inp[:, 1:, 0:2] * std_arm.to(device) + mean_arm.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
                         elif i == 2:
+                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_probe_holder.to(device) + mean_probe_holder.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
+                        elif i == 4:
                             preds_tr_b = (dec_inp[:, 1:, 0:2] * std_probe.to(device) + mean_probe.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
                         else:
                             preds_tr_b = (dec_inp[:, 1:, 0:2] * std_ped.to(device) + mean_ped.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
@@ -206,9 +223,8 @@ class VideoTracker(object):
                         self.Q[i][0].pop(0)
             if len(boxes_to_print) > 0:
                 boxes_xyxy = boxes_to_print.copy()
-                ori_im = cv2.rectangle(ori_im, (int(window[0]),int(window[1])), (int(window[2]),int(window[3])), (0, 204, 204), 2)
-                cv2.putText(ori_im, names[4], (int(window[0]), int(window[1]) - 10), 0,
-                            1e-3 * height, (255, 0, 0), int((height + width) // 900))
+                ori_im = cv2.rectangle(ori_im, (int(window[0]), int(window[1])), (int(window[2]), int(window[3])), (0, 204, 204), 2)
+                cv2.putText(ori_im, names[5], (int(window[0]), int(window[1]) - 10), 0, 1e-3 * height, (255, 0, 0), int((height + width) // 900))
                 boxes_xyxy[:, 0] = boxes_to_print[:, 0] - boxes_to_print[:, 2] / 2.
                 boxes_xyxy[:, 2] = boxes_to_print[:, 0] + boxes_to_print[:, 2] / 2.
                 boxes_xyxy[:, 1] = boxes_to_print[:, 1] - boxes_to_print[:, 3] / 2.
@@ -218,9 +234,11 @@ class VideoTracker(object):
                 #                        (0, 0, 255), 2)
                 #ori_im = draw_boxes(ori_im, boxes_xyxy, cls_ids)
                 for i in range(len(boxes_xyxy)):
-                    ori_im = cv2.rectangle(ori_im, (int(boxes_xyxy[i,0]), int(boxes_xyxy[i,1])), (int(boxes_xyxy[i,2]), int(boxes_xyxy[i,3])),
-                                        (0, 204, 204), 2)
-                    cv2.putText(ori_im, names[cls_ids[i]], (int(boxes_xyxy[i,0]), int(boxes_xyxy[i,1]) - 10), 0, 1e-3 * height, (255, 0, 0), int((height + width) // 900))
+                    ori_im = cv2.rectangle(ori_im, (int(boxes_xyxy[i, 0]), int(boxes_xyxy[i, 1])), (int(boxes_xyxy[i, 2]), int(boxes_xyxy[i, 3])), (0, 204, 204), 2)
+                    position = (int(boxes_xyxy[i, 0]), int(boxes_xyxy[i, 1]) - 10)
+                    if cls_ids[i] == 2:
+                        position = (int(boxes_xyxy[i, 0]), int(boxes_xyxy[i, 3]) + 15)
+                    cv2.putText(ori_im, names[cls_ids[i]], position, 0, 1e-3 * height, (255, 0, 0), int((height + width) // 900))
             co = (0, 255, 0)  # green
             cp = (0, 0, 255)  # red
             #print(preds_tr_b)
@@ -238,23 +256,23 @@ class VideoTracker(object):
                     ori_im = cv2.line(ori_im, op1, op2, co, 2)
             # print("---")
             # print(len(pr))
-            for i in range(11, 0, -1):
-                if len(pr) >= 3:
-                    pp = (int(pr[2][0, i, 0] * width), int(pr[2][0, i, 1] * height))
+            for i in range(len(pr)):
+                for j in range(11, 0, -1):
+                    pp = (int(pr[i][0, j, 0] * width), int(pr[i][0, j, 1] * height))
                     if pp[0] > window[0] and pp[1] > window[1] and pp[0] <window[2] and pp[1] < window[3]:
                         print("collision detected")
                         ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660),(0, 0, 255), 4)
                         ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
                         break
 
-            for i in range(11, 0, -1):
-                if len(pr) >= 3:
-                    pp = (int(pr[0][0, i, 0] * width), int(pr[0][0, i, 1] * height))
-                    if pp[0] > window[0] and pp[1] > window[1] and pp[0] <window[2] and pp[1] < window[3]:
-                        print("collision detected")
-                        ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660), (0, 0, 255), 4)
-                        ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
-                        break
+            # for i in range(11, 0, -1):
+            #     if len(pr) >= 3:
+            #         pp = (int(pr[0][0, i, 0] * width), int(pr[0][0, i, 1] * height))
+            #         if pp[0] > window[0] and pp[1] > window[1] and pp[0] <window[2] and pp[1] < window[3]:
+            #             print("collision detected")
+            #             ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660), (0, 0, 255), 4)
+            #             ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
+            #             break
 
             cv2.imshow("test", ori_im)
             cv2.waitKey(1)
