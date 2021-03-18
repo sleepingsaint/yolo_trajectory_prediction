@@ -18,7 +18,7 @@ download weights for trajectory prediction of person from the following link and
 https://drive.google.com/file/d/1p8vo9rig9Q0i0WLVudQBgzkdjtJXcDiS/view?usp=sharing
 
 download weights for trajectory prediction of probe from the following link and save it in Trajectory/individual/
-[https://drive.google.com/file/d/1Lwsa12AP3K8KgwRpdCHR6o8tpAopSKLb/view?usp=sharing][link] 
+https://drive.google.com/file/d/1Lwsa12AP3K8KgwRpdCHR6o8tpAopSKLb/view?usp=sharing 
  
 
 
@@ -26,6 +26,3 @@ run yolov3_deepsort.py file to get the results
 you can change the path of the video in this line https://github.com/nithinvenny07/Trajectory/blob/cafcd760c9fd0082661786a80071e8f3137cb934/yolov3_deepsort.py#L237 
 alternatively you can run the following command in the terminal
 python yolov3_deepsort.py --VIDEO_PATH "video path"
-
-
-[link]: https://drive.google.com/file/d/1Lwsa12AP3K8KgwRpdCHR6o8tpAopSKLb/view?usp=sharing
