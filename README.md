@@ -14,7 +14,7 @@ https://drive.google.com/file/d/1t_qok3BNNHN6EK_Uw3WiXrfGtLfQJpCs/view?usp=shari
 download weights for trajectory prediction of probe holder from the following link and save it in Trajectory/individual/ 
 https://drive.google.com/file/d/1SEZGUvLB2gfVwA-yGTBlF5k3YDiOzYWj/view?usp=sharing 
 
-download weights for trajectory prediction of person from the following link and save it in Trajectory/individual/ 
+download weights for trajectory prediction of person from the following link and save it in Trajectory/individual/eth_train/ 
 https://drive.google.com/file/d/1p8vo9rig9Q0i0WLVudQBgzkdjtJXcDiS/view?usp=sharing
 
 download weights for trajectory prediction of probe from the following link and save it in Trajectory/individual/
