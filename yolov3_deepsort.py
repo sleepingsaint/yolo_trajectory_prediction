@@ -309,7 +309,7 @@ class VideoTracker(object):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--VIDEO_PATH", type=str, default="C:/Users/venny/Downloads/new_video_2.mp4")
+    parser.add_argument("--VIDEO_PATH", type=str, default="C:/Users/venny/Desktop/new data/new_video_3.mp4")
     parser.add_argument("--config_detection", type=str, default="./configs/yolov3.yaml")
     parser.add_argument("--config_deepsort", type=str, default="./configs/deep_sort.yaml")
     # parser.add_argument("--ignore_display", dest="display", action="store_false", default=True)
