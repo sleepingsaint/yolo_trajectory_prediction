@@ -6,7 +6,8 @@ import torch
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
-
+import sys
+sys.path.append('myDiverseDepth')
 
 from detector import build_detector
 from deep_sort import build_tracker
@@ -16,6 +17,20 @@ from utils.log import get_logger
 from utils.io import write_results
 from Trajectory import individual_TF
 from Trajectory.transformer.batch import subsequent_mask
+
+# imports for Diverse Depth
+from myDiverseDepth.tools.parse_arg_test import TestOptions
+from myDiverseDepth.lib.models.diverse_depth_model import RelDepthModel
+from myDiverseDepth.lib.utils.net_tools import load_ckpt
+from myDiverseDepth.lib.core.config import cfg, merge_cfg_from_file
+from myDiverseDepth.lib.utils.logging import setup_logging, SmoothedValue
+
+import torchvision.transforms as transforms
+logger = setup_logging(__name__)
+
+
+
+
 from myDiverseDepth.test_diversedepth_png import get_depth
 if torch.cuda.is_available():
     device = torch.device('cuda')
@@ -64,6 +79,20 @@ class VideoTracker(object):
         self.traj_probe.eval()
         self.class_names = self.detector.class_names
         self.Q = { }
+        # loading model for depth predictin
+        test_args = TestOptions().parse()
+        test_args.thread = 1
+        test_args.batchsize = 1
+        merge_cfg_from_file(test_args)
+        # load model
+        self.model = RelDepthModel()
+        self.model.eval()
+        # load checkpoint
+        if test_args.load_ckpt:
+            load_ckpt(test_args, self.model)
+
+        # model.cuda()
+        self.model = torch.nn.DataParallel(self.model)
 
     def __enter__(self):
         if self.args.cam != -1:
@@ -267,11 +296,14 @@ class VideoTracker(object):
                 for j in range(11, 0, -1):
                     pp = (int(pr[i][0, j, 0] * width), int(pr[i][0, j, 1] * height))
                     if pp[0] > window[0] and pp[1] > window[1] and pp[0] <window[2] and pp[1] < window[3]:
-                        depth = get_depth(im_for_depth)
-                        print("collision detected")
-                        ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660),(0, 0, 255), 4)
-                        ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
-                        break
+                        depth = get_depth(im_for_depth, self.model)
+                        print("distance from camera")
+                        print(depth[pp[1]][pp[0]])
+                        if depth[pp[1]][pp[0]]<5 and depth[pp[1]][pp[0]]>4:
+                            print("collision detected")
+                            ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660),(0, 0, 255), 4)
+                            ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
+                            break
 
             # for i in range(11, 0, -1):
             #     if len(pr) >= 3:
@@ -317,7 +349,7 @@ class VideoTracker(object):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--VIDEO_PATH", type=str, default="C:/Users/venny/Desktop/new data/new_video_3.mp4")
+    parser.add_argument("--VIDEO_PATH", type=str, default="C:/Users/venny/Desktop/new data/new_video_3_Trim1.mp4")
     parser.add_argument("--config_detection", type=str, default="./configs/yolov3.yaml")
     parser.add_argument("--config_deepsort", type=str, default="./configs/deep_sort.yaml")
     # parser.add_argument("--ignore_display", dest="display", action="store_false", default=True)

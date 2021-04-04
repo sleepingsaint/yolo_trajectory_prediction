@@ -53,30 +53,30 @@ def colorize(arr, vmin=0.1, vmax=20, cmap='gray', ignore=-1):
     img = arr[:, :, :3]
 
     return img
-def get_depth(img):
+def get_depth(img,model):
     print("predicting depth")
     # plt.imshow(img)
     # plt.show()
-    test_args = TestOptions().parse()
-    test_args.thread = 1
-    test_args.batchsize = 1
-    merge_cfg_from_file(test_args)
+    # test_args = TestOptions().parse()
+    # test_args.thread = 1
+    # test_args.batchsize = 1
+    # merge_cfg_from_file(test_args)
     height, width = img.shape[:2]
-    print("in get depth")
-    print(height)
-    print(width)
+    # print("in get depth")
+    # print(height)
+    # print(width)
 
     # load model
-    model = RelDepthModel()
-
-    model.eval()
-
-    # load checkpoint
-    if test_args.load_ckpt:
-        load_ckpt(test_args, model)
-
-    # model.cuda()
-    model = torch.nn.DataParallel(model)
+    # model = RelDepthModel()
+    #
+    # model.eval()
+    #
+    # # load checkpoint
+    # if test_args.load_ckpt:
+    #     load_ckpt(test_args, model)
+    #
+    # # model.cuda()
+    # model = torch.nn.DataParallel(model)
     #img = cv2.imread("./test_images/" + i)
     img = cv2.resize(img, (width//2, height//2))
     #t1 = time.time()
@@ -90,9 +90,9 @@ def get_depth(img):
     predicted_depth = cv2.resize(predicted_depth, (width, height))
     print("Depth predicted")
     # predicted_depth = colorize(predicted_depth)
-    plt.imshow(predicted_depth, "gray")
-    plt.colorbar()
-    plt.show()
+    # plt.imshow(predicted_depth, "gray")
+    # plt.colorbar()
+    # plt.show()
     #t2 = time.time()
     #print(t2 - t1)
     #cv2.imwrite("example_output/" + i, predicted_depth)
