@@ -25,7 +25,7 @@ import logging
 import numpy as np
 import sys
 import os
-from lib.core.config import cfg
+from myDiverseDepth.lib.core.config import cfg
 
 
 def log_stats(stats, args):

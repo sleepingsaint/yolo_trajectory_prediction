@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
-from lib.core.config import cfg
-import lib.models.ResNeXt as ResNeXt
-import lib.utils.resnext_weights_helper as resnext_utils
-import lib.utils.mobilenetv2_weight_helper as mobilenet_utils
+from myDiverseDepth.lib.core.config import cfg
+import myDiverseDepth.lib.models.ResNeXt as ResNeXt
+import myDiverseDepth.lib.utils.resnext_weights_helper as resnext_utils
+import myDiverseDepth.lib.utils.mobilenetv2_weight_helper as mobilenet_utils
 from torch.nn import functional as F
 import math
 

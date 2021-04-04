@@ -1,14 +1,16 @@
-from tools.parse_arg_test import TestOptions
+import sys
+sys.path.append('myDiverseDepth')
+from myDiverseDepth.tools.parse_arg_test import TestOptions
 from .data.load_dataset import CustomerDataLoader
-from lib.models.diverse_depth_model import RelDepthModel
-from lib.utils.net_tools import load_ckpt
+from myDiverseDepth.lib.models.diverse_depth_model import RelDepthModel
+from myDiverseDepth.lib.utils.net_tools import load_ckpt
 import torch
 import os
 from os.path import isfile, join
 import numpy as np
-from lib.core.config import cfg, merge_cfg_from_file
+from myDiverseDepth.lib.core.config import cfg, merge_cfg_from_file
 import matplotlib.pyplot as plt
-from lib.utils.logging import setup_logging, SmoothedValue
+from myDiverseDepth.lib.utils.logging import setup_logging, SmoothedValue
 
 import torchvision.transforms as transforms
 from .lib.utils.evaluate_depth_error import evaluate_rel_err, recover_metric_depth
@@ -52,10 +54,17 @@ def colorize(arr, vmin=0.1, vmax=20, cmap='gray', ignore=-1):
 
     return img
 def get_depth(img):
+    print("predicting depth")
+    # plt.imshow(img)
+    # plt.show()
     test_args = TestOptions().parse()
     test_args.thread = 1
     test_args.batchsize = 1
     merge_cfg_from_file(test_args)
+    height, width = img.shape[:2]
+    print("in get depth")
+    print(height)
+    print(width)
 
     # load model
     model = RelDepthModel()
@@ -69,7 +78,7 @@ def get_depth(img):
     # model.cuda()
     model = torch.nn.DataParallel(model)
     #img = cv2.imread("./test_images/" + i)
-    img = cv2.resize(img, (854, 480))
+    img = cv2.resize(img, (width//2, height//2))
     #t1 = time.time()
 
     img_torch = scale_torch(img, 255)
@@ -78,14 +87,16 @@ def get_depth(img):
     pred_depth, _ = model.module.depth_model(img_torch)
     predicted_depth = pred_depth.detach().numpy() * 10
     predicted_depth = predicted_depth.squeeze()
+    predicted_depth = cv2.resize(predicted_depth, (width, height))
+    print("Depth predicted")
     # predicted_depth = colorize(predicted_depth)
-    # plt.imshow(predicted_depth,"gray")
-    # plt.colorbar()
-    # plt.show()
-    predicted_depth = cv2.resize(predicted_depth, (1920, 1080))
+    plt.imshow(predicted_depth, "gray")
+    plt.colorbar()
+    plt.show()
     #t2 = time.time()
     #print(t2 - t1)
     #cv2.imwrite("example_output/" + i, predicted_depth)
+    return predicted_depth
 
 
 if __name__ == '__main__':

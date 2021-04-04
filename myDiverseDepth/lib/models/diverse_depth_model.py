@@ -1,7 +1,7 @@
 from . import lateral_net as network
-from lib.utils.net_tools import *
-from lib.models.image_transfer import *
-from lib.core.config import cfg
+from myDiverseDepth.lib.utils.net_tools import *
+from myDiverseDepth.lib.models.image_transfer import *
+from myDiverseDepth.lib.core.config import cfg
 import torch
 import torch.nn.functional
 

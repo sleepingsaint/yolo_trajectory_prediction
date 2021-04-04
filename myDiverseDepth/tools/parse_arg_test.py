@@ -1,4 +1,4 @@
-from tools.parse_arg_base import BaseOptions
+from myDiverseDepth.tools.parse_arg_base import BaseOptions
 
 class TestOptions(BaseOptions):
     def initialize(self, parser):

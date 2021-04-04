@@ -1,9 +1,9 @@
 import importlib
 import torch
 import os
-from lib.core.config import cfg
+from myDiverseDepth.lib.core.config import cfg
 import torch.nn as nn
-from lib.utils.logging import setup_logging
+from myDiverseDepth.lib.utils.logging import setup_logging
 import numpy as np
 import matplotlib.pyplot as plt
 import dill

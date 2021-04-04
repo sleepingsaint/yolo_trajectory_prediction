@@ -1,6 +1,8 @@
 import argparse
 from multiprocessing import Value
 import logging
+import os
+cwd = os.getcwd()
 
 class BaseOptions():
     def __init__(self):
@@ -16,7 +18,7 @@ class BaseOptions():
         parser.add_argument('--dataset', default='nyudv2_rel', help='Path to images')
         parser.add_argument('--base_lr', type=float, default=0.00001, help='Initial learning rate')
         parser.add_argument('--scale_decoder_lr', type=float, default=1, help='Scale learning rate for the decoder')
-        parser.add_argument('--load_ckpt',default = 'model.pth', help='Checkpoint path to load')
+        parser.add_argument('--load_ckpt',default = cwd+'/myDiverseDepth/model.pth', help='Checkpoint path to load')
         parser.add_argument('--resume', action='store_true', help='Resume to train')
         parser.add_argument('--epoch', default=100, type=int, help='Set training epochs')
         parser.add_argument('--start_epoch', default=0, type=int, help='Set training epochs')

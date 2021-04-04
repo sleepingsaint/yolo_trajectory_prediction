@@ -5,6 +5,8 @@ import argparse
 import torch
 import warnings
 import numpy as np
+import matplotlib.pyplot as plt
+
 
 from detector import build_detector
 from deep_sort import build_tracker
@@ -14,6 +16,7 @@ from utils.log import get_logger
 from utils.io import write_results
 from Trajectory import individual_TF
 from Trajectory.transformer.batch import subsequent_mask
+from myDiverseDepth.test_diversedepth_png import get_depth
 if torch.cuda.is_available():
     device = torch.device('cuda')
 else:
@@ -122,13 +125,18 @@ class VideoTracker(object):
         window[2] = window[0] + window[2] / 2.
         window[1] = window[1] - window[3] / 2.
         window[3] = window[1] + window[3] / 2.
-        names = ["End-effector", "arm", "probe_holder", "Person", "probe","window"]
+        names = ["End-effector", "arm", "probe_holder", "Person", "probe", "window"]
         while self.vdo.grab() :
 
             idx_frame += 1
             start = time.time()
             _, ori_im = self.vdo.retrieve()
             im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
+            im_for_depth = im
+            # cv2.imshow("frame",im_for_depth)
+            # cv2.waitKey(0)
+            # plt.imshow(im_for_depth)
+            # plt.show()
             height, width = ori_im.shape[:2]
             bbox_xywh , cls_conf, cls_ids = self.detector(im)
             print("class confidence")
@@ -254,12 +262,12 @@ class VideoTracker(object):
                     op2 = (int(obs[i][0, j+1, 0] * width), int(obs[i][0, j+1, 1] * height))
                     #ori_im = cv2.circle(ori_im, op, 3, co, -1)
                     ori_im = cv2.line(ori_im, op1, op2, co, 2)
-            # print("---")
-            # print(len(pr))
+
             for i in range(len(pr)):
                 for j in range(11, 0, -1):
                     pp = (int(pr[i][0, j, 0] * width), int(pr[i][0, j, 1] * height))
                     if pp[0] > window[0] and pp[1] > window[1] and pp[0] <window[2] and pp[1] < window[3]:
+                        depth = get_depth(im_for_depth)
                         print("collision detected")
                         ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660),(0, 0, 255), 4)
                         ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
