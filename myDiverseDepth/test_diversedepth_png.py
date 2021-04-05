@@ -54,6 +54,10 @@ def colorize(arr, vmin=0.1, vmax=20, cmap='gray', ignore=-1):
 
     return img
 def get_depth(img,model):
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
     print("predicting depth")
     # plt.imshow(img)
     # plt.show()
@@ -84,8 +88,9 @@ def get_depth(img,model):
     img_torch = scale_torch(img, 255)
     img_torch = img_torch[np.newaxis, :]
     print(img_torch.shape)
+    img_torch = img_torch.to(device)
     pred_depth, _ = model.module.depth_model(img_torch)
-    predicted_depth = pred_depth.detach().numpy() * 10
+    predicted_depth = pred_depth.detach().cpu().numpy() * 10
     predicted_depth = predicted_depth.squeeze()
     predicted_depth = cv2.resize(predicted_depth, (width, height))
     print("Depth predicted")
