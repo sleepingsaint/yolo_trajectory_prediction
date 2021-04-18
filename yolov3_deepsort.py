@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.append('myDiverseDepth')
 
+import random
+
 from detector import build_detector
 from deep_sort import build_tracker
 from utils.draw import draw_boxes
@@ -62,20 +64,40 @@ class VideoTracker(object):
         #print(fps)
         self.detector = build_detector(cfg, use_cuda=use_cuda)
         self.deepsort = build_tracker(cfg, use_cuda=use_cuda)
-        self.traj_ped = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0,0], std=[0,0]).to(device)
-        self.traj_ped.load_state_dict(torch.load(f'Trajectory/models/Individual/eth_train/00013.pth', map_location=torch.device('cpu')))
+        #Trajectory models for 2d prediction
+        # self.traj_ped = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0,0], std=[0,0]).to(device)
+        # self.traj_ped.load_state_dict(torch.load(f'Trajectory/models/Individual/eth_train/00013.pth', map_location=torch.device('cpu')))
+        # self.traj_ped.eval()
+        # self.traj_endeffector = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0,0], std=[0,0]).to(device)
+        # self.traj_endeffector.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_endeffector.pth', map_location=torch.device('cpu')))
+        # self.traj_endeffector.eval()
+        # self.traj_arm = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0], std=[0, 0]).to(device)
+        # self.traj_arm.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_arm.pth', map_location=torch.device('cpu')))
+        # self.traj_arm.eval()
+        # self.traj_probe_holder = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0], std=[0, 0]).to(device)
+        # self.traj_probe_holder.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_probe_holder.pth', map_location=torch.device('cpu')))
+        # self.traj_probe_holder.eval()
+        # self.traj_probe = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1,mean=[0, 0], std=[0, 0]).to(device)
+        # self.traj_probe.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_probe.pth', map_location=torch.device('cpu')))
+        # self.traj_probe.eval()
+
+        # Trajectory models for prediction in 3d
+        #TODO load with actual models which are trained on 3d data
+
+        self.traj_ped = individual_TF.IndividualTF(3, 4, 4, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0, 0],std=[0, 0, 0]).to(device)
+        self.traj_ped.load_state_dict(torch.load(f'3dTrajectory/models/Individual/new_video_3_probe_3d_meanstd/00000.pth', map_location=device))
         self.traj_ped.eval()
-        self.traj_endeffector = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0,0], std=[0,0]).to(device)
-        self.traj_endeffector.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_endeffector.pth', map_location=torch.device('cpu')))
+        self.traj_endeffector = individual_TF.IndividualTF(3, 4, 4, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0, 0],std=[0, 0, 0]).to(device)
+        self.traj_endeffector.load_state_dict(torch.load(f'3dTrajectory/models/Individual/new_video_3_probe_3d_meanstd/00000.pth', map_location=device))
         self.traj_endeffector.eval()
-        self.traj_arm = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0], std=[0, 0]).to(device)
-        self.traj_arm.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_arm.pth', map_location=torch.device('cpu')))
+        self.traj_arm = individual_TF.IndividualTF(3, 4, 4, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0, 0],std=[0, 0, 0]).to(device)
+        self.traj_arm.load_state_dict(torch.load(f'3dTrajectory/models/Individual/new_video_3_probe_3d_meanstd/00000.pth', map_location=device))
         self.traj_arm.eval()
-        self.traj_probe_holder = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0], std=[0, 0]).to(device)
-        self.traj_probe_holder.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_probe_holder.pth', map_location=torch.device('cpu')))
+        self.traj_probe_holder = individual_TF.IndividualTF(3, 4, 4, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0, 0],std=[0, 0, 0]).to(device)
+        self.traj_probe_holder.load_state_dict(torch.load(f'3dTrajectory/models/Individual/new_video_3_probe_3d_meanstd/00000.pth', map_location=device))
         self.traj_probe_holder.eval()
-        self.traj_probe = individual_TF.IndividualTF(2, 3, 3, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1,mean=[0, 0], std=[0, 0]).to(device)
-        self.traj_probe.load_state_dict(torch.load(f'Trajectory/models/Individual/traj_probe.pth', map_location=torch.device('cpu')))
+        self.traj_probe = individual_TF.IndividualTF(3, 4, 4, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1, mean=[0, 0, 0],std=[0, 0, 0]).to(device)
+        self.traj_probe.load_state_dict(torch.load(f'3dTrajectory/models/Individual/new_video_3_probe_3d_meanstd/00000.pth', map_location=device))
         self.traj_probe.eval()
         self.class_names = self.detector.class_names
         self.Q = { }
@@ -134,16 +156,17 @@ class VideoTracker(object):
         pr = []
         obs = []
         idx_frame = 0
-        mean_end_effector = torch.tensor((-2.6612e-05, -7.8652e-05))
-        std_end_effector = torch.tensor((0.0025, 0.0042))
-        mean_arm = torch.tensor([-1.3265e-05, -6.5026e-06])
-        std_arm = torch.tensor([0.0030, 0.0185])
-        mean_probe_holder = torch.tensor([-5.1165e-05, -7.1806e-05])
-        std_probe_holder = torch.tensor([0.0038, 0.0185])
-        mean_ped = torch.tensor([0.0001, 0.0001])
-        std_ped = torch.tensor([0.0001, 0.0001])
-        mean_probe = torch.tensor([0.0005, -0.0015])
-        std_probe = torch.tensor([0.0061, 0.0125])
+        #TODO replace with mean and std deviation obtained from actual datasets
+        mean_end_effector = torch.tensor((-2.6612e-05, -7.8652e-05, 0.001))
+        std_end_effector = torch.tensor((0.0025, 0.0042, 0.001))
+        mean_arm = torch.tensor([-1.3265e-05, -6.5026e-06, 0.001])
+        std_arm = torch.tensor([0.0030, 0.0185, 0.001])
+        mean_probe_holder = torch.tensor([-5.1165e-05, -7.1806e-05, 0.001])
+        std_probe_holder = torch.tensor([0.0038, 0.0185, 0.001])
+        mean_ped = torch.tensor([0.0001, 0.0001, 0.001])
+        std_ped = torch.tensor([0.0001, 0.0001, 0.001])
+        mean_probe = torch.tensor([0.0005, -0.0015, 0.001])
+        std_probe = torch.tensor([0.0061, 0.0125, 0.001])
         #window = [0.735156, 0.520270, 0.071875, 0.127027]
         window = [0.755156, 0.560270, 0.075875, 0.157027]
         window[0] = window[0] * 1920
@@ -181,8 +204,10 @@ class VideoTracker(object):
                     mask = cls_ids == i
                     t_cls_conf = cls_conf[mask]
                     t_bbox_xywh = bbox_xywh[mask]
+                    #TODO need to get depth at the position of the bbox centre here and get the 3d world coordinate point and take it as pt
+                    z = random.random()
                     if t_cls_conf.size > 0:
-                        pt = [t_bbox_xywh[np.argmax(t_cls_conf)][0] / width, t_bbox_xywh[np.argmax(t_cls_conf)][1] / height]
+                        pt = [t_bbox_xywh[np.argmax(t_cls_conf)][0] / width, t_bbox_xywh[np.argmax(t_cls_conf)][1] / height, z]
                         t_id = i
                         if t_id in self.Q:
                             self.Q[t_id][0].append(pt)
@@ -200,8 +225,9 @@ class VideoTracker(object):
                 outputs = self.deepsort.update(bbox_xywh, cls_conf, im)
                 print(outputs)
                 for i in range(len(outputs)):
+                    z = random.random()
                     t_id = outputs[i][4]+5 # added with 5 so that ped id will not clash with id's of end_effector arm and probe
-                    pt = [(int(outputs[i][0]) + int(outputs[i][2])) / (2*width), (int(outputs[i][1]) + int(outputs[i][3])) / (2*height)]
+                    pt = [(int(outputs[i][0]) + int(outputs[i][2])) / (2*width), (int(outputs[i][1]) + int(outputs[i][3])) / (2*height), z]
                     #print(pt)
                     if t_id in self.Q:
                         self.Q[t_id][0].append(pt)
@@ -213,7 +239,7 @@ class VideoTracker(object):
                     if (len(self.Q[i][0])) == 8:
                         Q_np = np.array(self.Q[i], dtype=np.float32)
                         obs.append(Q_np)
-                        Q_d = Q_np[:, 1:, 0:2] - Q_np[:, :-1, 0:2]
+                        Q_d = Q_np[:, 1:, 0:3] - Q_np[:, :-1, 0:3]
                         inp = torch.from_numpy(Q_d)
                         #print(i)
                         #print(inp)
@@ -228,7 +254,7 @@ class VideoTracker(object):
                         else:
                             inp = (inp.to(device) - mean_ped.to(device)) / std_ped.to(device)
                         src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
-                        start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
+                        start_of_seq = torch.Tensor([0, 0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
                             device)
                         dec_inp = start_of_seq
                         print("predicting trajectory")
@@ -246,15 +272,15 @@ class VideoTracker(object):
                                 out = self.traj_ped(inp, dec_inp, src_att, trg_att)
                             dec_inp = torch.cat((dec_inp, out[:, -1:, :]), 1)
                         if i == 0:
-                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_end_effector.to(device) + mean_end_effector.to(device)).detach().cpu().numpy().cumsum(1)+Q_np[:, -1:, 0:2]
+                            preds_tr_b = (dec_inp[:, 1:, 0:3] * std_end_effector.to(device) + mean_end_effector.to(device)).detach().cpu().numpy().cumsum(1)+Q_np[:, -1:, 0:3]
                         elif i == 1:
-                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_arm.to(device) + mean_arm.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
+                            preds_tr_b = (dec_inp[:, 1:, 0:3] * std_arm.to(device) + mean_arm.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:3]
                         elif i == 2:
-                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_probe_holder.to(device) + mean_probe_holder.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
+                            preds_tr_b = (dec_inp[:, 1:, 0:3] * std_probe_holder.to(device) + mean_probe_holder.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:3]
                         elif i == 4:
-                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_probe.to(device) + mean_probe.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
+                            preds_tr_b = (dec_inp[:, 1:, 0:3] * std_probe.to(device) + mean_probe.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:3]
                         else:
-                            preds_tr_b = (dec_inp[:, 1:, 0:2] * std_ped.to(device) + mean_ped.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:2]
+                            preds_tr_b = (dec_inp[:, 1:, 0:3] * std_ped.to(device) + mean_ped.to(device)).detach().cpu().numpy().cumsum(1) + Q_np[:, -1:, 0:3]
                         pr.append(preds_tr_b)
                         #pr = np.concatenate(pr, 0)
                         self.Q[i][0].pop(0)
@@ -296,14 +322,14 @@ class VideoTracker(object):
                 for j in range(11, 0, -1):
                     pp = (int(pr[i][0, j, 0] * width), int(pr[i][0, j, 1] * height))
                     if pp[0] > window[0] and pp[1] > window[1] and pp[0] <window[2] and pp[1] < window[3]:
-                        depth = get_depth(im_for_depth, self.model)
+                        #depth = get_depth(im_for_depth, self.model)
                         print("distance from camera")
-                        print(depth[pp[1]][pp[0]])
-                        if depth[pp[1]][pp[0]]<5 and depth[pp[1]][pp[0]]>4:
-                            print("collision detected")
-                            ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660),(0, 0, 255), 4)
-                            ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
-                            break
+                        #print(depth[pp[1]][pp[0]])
+                        # if depth[pp[1]][pp[0]]<5 and depth[pp[1]][pp[0]]>4:
+                        #     print("collision detected")
+                        #     ori_im = cv2.rectangle(ori_im, (1330, 456), (1490, 660),(0, 0, 255), 4)
+                        #     ori_im = cv2.putText(ori_im, 'Possible collision', (1160, 325), cv2.FONT_HERSHEY_SIMPLEX , 2, (0, 0, 255), 3, cv2.LINE_AA)
+                        #     break
 
             # for i in range(11, 0, -1):
             #     if len(pr) >= 3:
