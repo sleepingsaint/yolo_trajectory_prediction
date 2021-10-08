@@ -13,6 +13,7 @@ links = {
     "1SEZGUvLB2gfVwA-yGTBlF5k3YDiOzYWj": ["traj_probe_holder.pth", "Trajectory/models/Individual/"],
     "1p8vo9rig9Q0i0WLVudQBgzkdjtJXcDiS": ["00013.pth", "Trajectory/models/Individual/eth_train/"],
     "1MlXnCSjD5yOfxnnJMkruE0rCgLCMZJlB": ["ckpt.t7", "deep_sort/deep/checkpoint/"],
+    "13mVaJTsJ7rN-Bz5KtsS20dX1TZFAHLkU": ["test_video.mp4", "data/"]
 }
 
 # download the files and save to respective folder
