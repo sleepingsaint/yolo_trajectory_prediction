@@ -8,7 +8,6 @@
 * [Running the pipeline](#running-the-pipeline)
 
 ## Downloading the project
----
 
 Clone this repo using the following command 
 
@@ -17,7 +16,6 @@ git clone https://github.com/sleepingsaint/yolo_trajectory_prediction.git
 ```
 
 ## Setting up the project
----
 
 * Run the download.py script and everything required will be downloaded and placed in corresponding directories
 
@@ -26,7 +24,7 @@ git clone https://github.com/sleepingsaint/yolo_trajectory_prediction.git
 ```
 
 ## Manual Setup 
----
+
 * download objection detection weights from the following link and save it in detector/YOLOV3/weight/obj_detection.weights
 
 	* https://drive.google.com/file/d/1C3Kqqu9gDXNNXr5WDpmhGTr-UaQ2ckqQ/view?usp=sharing 
@@ -51,7 +49,7 @@ git clone https://github.com/sleepingsaint/yolo_trajectory_prediction.git
 
 
 ## Running the pipeline
----
+
 Run the below command to run inference on a video file
 
 ```shell
