@@ -5,6 +5,7 @@ import argparse
 import torch
 import warnings
 import numpy as np
+from halo import Halo
 
 from detector import build_detector
 from deep_sort import build_tracker
@@ -109,12 +110,16 @@ class VideoTracker(object):
             "prediction": [],
             "total": []
         }
+        spinner = Halo(text="loading frames", spinner="dots")
+        spinner.start()
 
         while self.vdo.grab() :
             idx_frame += 1
+            spinner.text = f"Frame {idx_frame}"
+
             if idx_frame % self.args.frame_interval:
                 continue
-            start = time.time()
+            
             _, ori_im = self.vdo.retrieve()
             im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
             height, width = ori_im.shape[:2]
@@ -237,11 +242,6 @@ class VideoTracker(object):
             #
             #     results.append((idx_frame - 1, bbox_tlwh, identities))
 
-            end = time.time()
-
-            if idx_frame > 1:
-                timings["total"].append(end - start)
-
             if num_frames is not None and idx_frame >= num_frames:
                 break
             # if self.args.display:
@@ -259,15 +259,15 @@ class VideoTracker(object):
             # self.logger.info("time: {:.03f}s, fps: {:.03f}, detection numbers: {}, tracking numbers: {}" \
             #                  .format(end - start, 1 / (end - start), bbox_xywh.shape[0], len(outputs)))
 
+        spinner.stop()
         avg_detection_time = round(np.average(np.array(timings["detection"])), 2)
         avg_deepsort_time = round(np.average(np.array(timings["deep_sort"])), 2)
         avg_prediction_time = round(np.average(np.array(timings["prediction"])), 2)
-        avg_total_time = round(np.average(np.array(timings["total"])), 2)
 
         print(f"[Detection Avg. Time] {avg_detection_time}")
         print(f"[Detection Deepsort Time] {avg_deepsort_time}")
         print(f"[Detection Prediction Time] {avg_prediction_time}")
-        print(f"[Total Time] {avg_total_time}")
+        print(f"[Total Time] {avg_deepsort_time + avg_detection_time + avg_prediction_time}")
 
 def parse_args():
     parser = argparse.ArgumentParser()
