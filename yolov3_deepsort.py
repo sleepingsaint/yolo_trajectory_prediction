@@ -242,7 +242,7 @@ class VideoTracker(object):
             if idx_frame > 1:
                 timings["total"].append(end - start)
 
-            if idx_frame >= num_frames:
+            if num_frames is not None and idx_frame >= num_frames:
                 break
             # if self.args.display:
             #     cv2.imshow("test", ori_im)
@@ -267,7 +267,7 @@ class VideoTracker(object):
         print(f"[Detection Avg. Time] {avg_detection_time}")
         print(f"[Detection Deepsort Time] {avg_deepsort_time}")
         print(f"[Detection Prediction Time] {avg_prediction_time}")
-        print(f"[Detection Prediction Time] {avg_prediction_time}")
+        print(f"[Total Time] {avg_total_time}")
 
 def parse_args():
     parser = argparse.ArgumentParser()
