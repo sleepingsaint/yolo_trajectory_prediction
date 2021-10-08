@@ -107,6 +107,7 @@ class VideoTracker(object):
             "detection": [],
             "deep_sort": [],
             "prediction": [],
+            "total": []
         }
 
         while self.vdo.grab() :
@@ -122,9 +123,6 @@ class VideoTracker(object):
             bbox_xywh , cls_conf, cls_ids = self.detector(im)
             detection_end = time.time()
 
-            print("cls_ids")
-            print(cls_conf)
-            print(cls_ids)
             for i in range(3):
                 mask = cls_ids == i
                 t_cls_conf = cls_conf[mask]
@@ -179,7 +177,7 @@ class VideoTracker(object):
                     start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
                         device)
                     dec_inp = start_of_seq
-                    print("predicting trajectory")
+
                     for itr in range(12):
                         trg_att = subsequent_mask(dec_inp.shape[1]).repeat(dec_inp.shape[0], 1, 1).to(device)
                         if i == 0:
@@ -241,6 +239,9 @@ class VideoTracker(object):
 
             end = time.time()
 
+            if idx_frame > 1:
+                timings["total"].append(end - start)
+
             if idx_frame >= num_frames:
                 break
             # if self.args.display:
@@ -261,9 +262,11 @@ class VideoTracker(object):
         avg_detection_time = round(np.average(np.array(timings["detection"])), 2)
         avg_deepsort_time = round(np.average(np.array(timings["deep_sort"])), 2)
         avg_prediction_time = round(np.average(np.array(timings["prediction"])), 2)
-        
+        avg_total_time = round(np.average(np.array(timings["total"])), 2)
+
         print(f"[Detection Avg. Time] {avg_detection_time}")
         print(f"[Detection Deepsort Time] {avg_deepsort_time}")
+        print(f"[Detection Prediction Time] {avg_prediction_time}")
         print(f"[Detection Prediction Time] {avg_prediction_time}")
 
 def parse_args():
