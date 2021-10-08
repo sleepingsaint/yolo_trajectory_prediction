@@ -91,7 +91,7 @@ class VideoTracker(object):
         if exc_type:
             print(exc_type, exc_value, exc_traceback)
 
-    def run(self):
+    def run(self, num_frames):
         results = []
         idx_frame = 0
         mean_end_effector = torch.tensor((-2.6612e-05, -7.8652e-05))
@@ -102,6 +102,13 @@ class VideoTracker(object):
         std_probe = torch.tensor([0.0038, 0.0185])
         mean_ped = torch.tensor([0.0001, 0.0001])
         std_ped = torch.tensor([0.0001, 0.0001])
+        
+        timings = {
+            "detection": [],
+            "deep_sort": [],
+            "prediction": [],
+        }
+
         while self.vdo.grab() :
             idx_frame += 1
             if idx_frame % self.args.frame_interval:
@@ -110,7 +117,11 @@ class VideoTracker(object):
             _, ori_im = self.vdo.retrieve()
             im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
             height, width = ori_im.shape[:2]
+            
+            detection_start = time.time()
             bbox_xywh , cls_conf, cls_ids = self.detector(im)
+            detection_end = time.time()
+
             print("cls_ids")
             print(cls_conf)
             print(cls_ids)
@@ -133,7 +144,10 @@ class VideoTracker(object):
             cls_conf = cls_conf[mask]
 
             # do tracking
+            deepsort_start = time.time()
             outputs = self.deepsort.update(bbox_xywh, cls_conf, im)
+            deepsort_end = time.time()
+
             for i in range(len(outputs)):
                 t_id = outputs[i][4]+5 # added with 5 so that ped id will not clash with id's of end_effector arm and probe
                 pt = [(int(outputs[i][0]) + int(outputs[i][2])) / (2*width), (int(outputs[i][1]) + int(outputs[i][3])) / (2*height)]
@@ -142,9 +156,11 @@ class VideoTracker(object):
                     self.Q[t_id][0].append(pt)
                 else:
                     self.Q[t_id] = [[pt]]
-            # print(self.Q)
+            # print(self.Q)frame_count = 0
             for i in self.Q:
+
                 if (len(self.Q[i][0])) == 8:
+                    prediction_start = time.time()
                     Q_np = np.array(self.Q[i], dtype=np.float32)
                     Q_d = Q_np[:, 1:, 0:2] - Q_np[:, :-1, 0:2]
                     pr = []
@@ -199,6 +215,16 @@ class VideoTracker(object):
                         op2 = (int(Q_np[0, j+1, 0] * width), int(Q_np[0, j+1, 1] * height))
                         #ori_im = cv2.circle(ori_im, op, 3, co, -1)
                         ori_im = cv2.line(ori_im, op1, op2, co, 2)
+
+                    prediction_end = time.time()
+
+                    if idx_frame > 1:
+                        timings["prediction"].append(prediction_end - prediction_start)
+
+            if idx_frame > 1:
+                timings["detection"].append(detection_end - detection_start)
+                timings["deep_sort"].append(deepsort_end - detection_start)
+            
             cv2.imshow("test", ori_im)
             cv2.waitKey(1)
             # draw boxes for visualization
@@ -215,6 +241,8 @@ class VideoTracker(object):
 
             end = time.time()
 
+            if idx_frame >= num_frames:
+                break
             # if self.args.display:
             #     cv2.imshow("test", ori_im)
             #     cv2.waitKey(1)
@@ -230,11 +258,19 @@ class VideoTracker(object):
             # self.logger.info("time: {:.03f}s, fps: {:.03f}, detection numbers: {}, tracking numbers: {}" \
             #                  .format(end - start, 1 / (end - start), bbox_xywh.shape[0], len(outputs)))
 
-
+        avg_detection_time = round(np.average(np.array(timings["detection"])), 2)
+        avg_deepsort_time = round(np.average(np.array(timings["deep_sort"])), 2)
+        avg_prediction_time = round(np.average(np.array(timings["prediction"])), 2)
+        
+        print(f"[Detection Avg. Time] {avg_detection_time}")
+        print(f"[Detection Deepsort Time] {avg_deepsort_time}")
+        print(f"[Detection Prediction Time] {avg_prediction_time}")
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--VIDEO_PATH", type=str, default="C:/Users/venny/Downloads/new_video_3.mp4")
+    parser.add_argument('-v', "--VIDEO_PATH", type=str)
+    parser.add_argument('-f', "--frame_count", type=int)
+
     parser.add_argument("--config_detection", type=str, default="./configs/yolov3.yaml")
     parser.add_argument("--config_deepsort", type=str, default="./configs/deep_sort.yaml")
     # parser.add_argument("--ignore_display", dest="display", action="store_false", default=True)
@@ -255,4 +291,4 @@ if __name__ == "__main__":
     cfg.merge_from_file(args.config_deepsort)
 
     with VideoTracker(cfg, args, video_path=args.VIDEO_PATH) as vdo_trk:
-        vdo_trk.run()
+        vdo_trk.run(args.frame_count)
